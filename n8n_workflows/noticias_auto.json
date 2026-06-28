@@ -1,0 +1,223 @@
+{
+  "name": "Levanta VZL — Noticias Auto (RSS + IA → Supabase)",
+  "active": false,
+  "nodes": [
+    {
+      "id": "schedule-trigger",
+      "name": "Cada 15 minutos",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "rss-read",
+      "name": "Leer RSS Noticias",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1,
+      "position": [460, 300],
+      "parameters": {
+        "url": "https://www.elnacional.com/feed/",
+        "options": {}
+      }
+    },
+    {
+      "id": "filter-recent",
+      "name": "Filtrar Últimas 15 min",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2,
+      "position": [680, 300],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "fecha-reciente",
+              "leftValue": "={{ new Date($json.pubDate).getTime() }}",
+              "rightValue": "={{ Date.now() - 15 * 60 * 1000 }}",
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "groq-ia",
+      "name": "Groq — Extraer Datos Noticia",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [900, 300],
+      "parameters": {
+        "model": "llama3-8b-8192",
+        "options": {
+          "temperature": 0.1,
+          "maxTokens": 512
+        },
+        "messages": {
+          "values": [
+            {
+              "role": "system",
+              "content": "Eres un extractor de datos de noticias de emergencia venezolana. Tu tarea es analizar el contenido de una noticia y devolver ÚNICAMENTE un JSON válido con los campos: titulo (string, máx 200 chars), cuerpo (string, resumen de máx 400 chars), fuente (string, nombre del medio), urgencia (string, uno de: Crítico|Alto|Medio|Bajo según el impacto de la noticia en la emergencia). No incluyas ningún texto fuera del JSON."
+            },
+            {
+              "role": "user",
+              "content": "=Analiza esta noticia y extrae los datos:\n\nTítulo: {{ $json.title }}\nFuente: {{ $json.creator ?? $json['dc:creator'] ?? 'Desconocida' }}\nContenido: {{ ($json.contentSnippet ?? $json.content ?? $json.summary ?? '').substring(0, 1000) }}\nFecha: {{ $json.pubDate }}"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "groqApi": {
+          "id": "groq-credential-id",
+          "name": "Groq API"
+        }
+      }
+    },
+    {
+      "id": "parse-json",
+      "name": "Parsear JSON de IA",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 300],
+      "parameters": {
+        "jsCode": "const raw = $input.item.json.text ?? $input.item.json.content ?? '';\nlet parsed;\ntry {\n  const match = raw.match(/\\{[\\s\\S]*\\}/);\n  parsed = JSON.parse(match ? match[0] : raw);\n} catch {\n  return [];\n}\n\nconst urgencias = ['Crítico', 'Alto', 'Medio', 'Bajo'];\nconst urgencia = urgencias.includes(parsed.urgencia) ? parsed.urgencia : 'Bajo';\n\nif (!parsed.titulo || !parsed.cuerpo) return [];\n\nreturn [{\n  json: {\n    titulo: String(parsed.titulo).substring(0, 200),\n    cuerpo: String(parsed.cuerpo).substring(0, 400),\n    fuente: String(parsed.fuente ?? 'RSS Auto').substring(0, 100),\n    fuente_url: $('Leer RSS Noticias').item.json.link ?? null,\n    urgencia,\n    fuente_tipo: 'Automatizado',\n    activo: true,\n    tags: ['automatico', 'rss']\n  }\n}];"
+      }
+    },
+    {
+      "id": "supabase-insert",
+      "name": "Supabase — Insertar Noticia",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1340, 300],
+      "parameters": {
+        "operation": "create",
+        "tableId": "alertas_noticias",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            { "fieldId": "titulo",      "fieldValue": "={{ $json.titulo }}" },
+            { "fieldId": "cuerpo",      "fieldValue": "={{ $json.cuerpo }}" },
+            { "fieldId": "fuente",      "fieldValue": "={{ $json.fuente }}" },
+            { "fieldId": "fuente_url",  "fieldValue": "={{ $json.fuente_url }}" },
+            { "fieldId": "urgencia",    "fieldValue": "={{ $json.urgencia }}" },
+            { "fieldId": "fuente_tipo", "fieldValue": "={{ $json.fuente_tipo }}" },
+            { "fieldId": "activo",      "fieldValue": "={{ $json.activo }}" },
+            { "fieldId": "tags",        "fieldValue": "={{ $json.tags }}" }
+          ]
+        }
+      },
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-credential-id",
+          "name": "Supabase — LevantaVZL"
+        }
+      }
+    },
+    {
+      "id": "notify-telegram",
+      "name": "Telegram — Notificar Crítico",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1560, 220],
+      "parameters": {
+        "chatId": "-1001234567890",
+        "text": "=🚨 *ALERTA {{ $json.urgencia.toUpperCase() }}*\n\n*{{ $json.titulo }}*\n\n{{ $json.cuerpo }}\n\n📰 Fuente: {{ $json.fuente }}\n🔗 {{ $json.fuente_url ?? '' }}\n\n_Levanta Venezuela — G-Talent Labs_",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "telegram-credential-id",
+          "name": "Telegram — EncuentraVZL"
+        }
+      }
+    },
+    {
+      "id": "filter-critico",
+      "name": "¿Es Crítico o Alto?",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2,
+      "position": [1340, 160],
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "id": "es-urgente",
+              "leftValue": "={{ $json.urgencia }}",
+              "rightValue": "Bajo",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            },
+            {
+              "id": "no-medio",
+              "leftValue": "={{ $json.urgencia }}",
+              "rightValue": "Medio",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Cada 15 minutos": {
+      "main": [[{ "node": "Leer RSS Noticias", "type": "main", "index": 0 }]]
+    },
+    "Leer RSS Noticias": {
+      "main": [[{ "node": "Filtrar Últimas 15 min", "type": "main", "index": 0 }]]
+    },
+    "Filtrar Últimas 15 min": {
+      "main": [[{ "node": "Groq — Extraer Datos Noticia", "type": "main", "index": 0 }]]
+    },
+    "Groq — Extraer Datos Noticia": {
+      "main": [[{ "node": "Parsear JSON de IA", "type": "main", "index": 0 }]]
+    },
+    "Parsear JSON de IA": {
+      "main": [
+        [{ "node": "Supabase — Insertar Noticia", "type": "main", "index": 0 }],
+        [{ "node": "¿Es Crítico o Alto?", "type": "main", "index": 0 }]
+      ]
+    },
+    "¿Es Crítico o Alto?": {
+      "main": [[{ "node": "Telegram — Notificar Crítico", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "staticData": null,
+  "tags": ["levanta-vzl", "noticias", "automatizacion"],
+  "pinData": {},
+  "versionId": "1.0.0",
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "instanceId": "levanta-vzl-noticias-auto"
+  }
+}

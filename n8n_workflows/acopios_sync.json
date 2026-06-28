@@ -1,0 +1,185 @@
+{
+  "name": "Levanta VZL — Acopios Sync (Google Sheets → Supabase)",
+  "active": false,
+  "nodes": [
+    {
+      "id": "sheets-trigger",
+      "name": "Google Sheets — Nueva Fila",
+      "type": "n8n-nodes-base.googleSheetsTrigger",
+      "typeVersion": 4,
+      "position": [240, 300],
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "TU_SPREADSHEET_ID_AQUI",
+          "cachedResultName": "Levanta VZL — Centros de Acopio"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gid=0",
+          "cachedResultName": "Centros"
+        },
+        "event": "rowAdded",
+        "options": {
+          "includeHeadersInOutput": true
+        }
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "google-credential-id",
+          "name": "Google Sheets — G-Talent"
+        }
+      }
+    },
+    {
+      "id": "validate-row",
+      "name": "Validar y Normalizar Fila",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300],
+      "parameters": {
+        "jsCode": "// Columnas esperadas en el Google Sheet:\n// nombre | zona | direccion | referencia | responsable | telefono | horario | latitud | longitud | activo\n\nconst row = $input.item.json;\n\n// Validación mínima\nif (!row.nombre || !row.zona || !row.direccion) {\n  return []; // descarta filas incompletas\n}\n\nconst toFloat = (v) => {\n  const n = parseFloat(String(v ?? '').replace(',', '.'));\n  return isNaN(n) ? null : n;\n};\n\nconst toBool = (v) => {\n  const s = String(v ?? 'si').toLowerCase().trim();\n  return s === 'si' || s === 'sí' || s === 'true' || s === '1' || s === 'yes';\n};\n\nreturn [{\n  json: {\n    nombre:      String(row.nombre).trim().substring(0, 200),\n    zona:        String(row.zona).trim().substring(0, 100),\n    direccion:   String(row.direccion).trim().substring(0, 300),\n    referencia:  row.referencia ? String(row.referencia).trim().substring(0, 300) : null,\n    responsable: row.responsable ? String(row.responsable).trim().substring(0, 150) : null,\n    telefono:    row.telefono ? String(row.telefono).trim().substring(0, 30) : null,\n    horario:     row.horario ? String(row.horario).trim().substring(0, 100) : null,\n    latitud:     toFloat(row.latitud),\n    longitud:    toFloat(row.longitud),\n    activo:      toBool(row.activo)\n  }\n}];"
+      }
+    },
+    {
+      "id": "supabase-upsert",
+      "name": "Supabase — Upsert Centro Acopio",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [680, 300],
+      "parameters": {
+        "operation": "upsert",
+        "tableId": "centros_acopio",
+        "filterType": "string",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "nombre",
+              "keyValue": "={{ $json.nombre }}"
+            }
+          ]
+        },
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            { "fieldId": "nombre",      "fieldValue": "={{ $json.nombre }}" },
+            { "fieldId": "zona",        "fieldValue": "={{ $json.zona }}" },
+            { "fieldId": "direccion",   "fieldValue": "={{ $json.direccion }}" },
+            { "fieldId": "referencia",  "fieldValue": "={{ $json.referencia }}" },
+            { "fieldId": "responsable", "fieldValue": "={{ $json.responsable }}" },
+            { "fieldId": "telefono",    "fieldValue": "={{ $json.telefono }}" },
+            { "fieldId": "horario",     "fieldValue": "={{ $json.horario }}" },
+            { "fieldId": "latitud",     "fieldValue": "={{ $json.latitud }}" },
+            { "fieldId": "longitud",    "fieldValue": "={{ $json.longitud }}" },
+            { "fieldId": "activo",      "fieldValue": "={{ $json.activo }}" }
+          ]
+        }
+      },
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-credential-id",
+          "name": "Supabase — LevantaVZL"
+        }
+      }
+    },
+    {
+      "id": "telegram-confirm",
+      "name": "Telegram — Confirmar Registro",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [900, 300],
+      "parameters": {
+        "chatId": "-1001234567890",
+        "text": "=✅ *Centro de Acopio {{ $('Supabase — Upsert Centro Acopio').item.json.activo ? 'activado' : 'actualizado' }}*\n\n📍 *{{ $json.nombre }}*\n🗺️ Zona: {{ $json.zona }}\n📋 {{ $json.direccion }}\n{{ $json.responsable ? '👤 ' + $json.responsable : '' }}\n{{ $json.telefono ? '📞 ' + $json.telefono : '' }}\n\n_Sync automático desde Google Sheets — Levanta Venezuela_",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "telegram-credential-id",
+          "name": "Telegram — EncuentraVZL"
+        }
+      }
+    },
+    {
+      "id": "sheets-log",
+      "name": "Google Sheets — Marcar Procesado",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [900, 440],
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "TU_SPREADSHEET_ID_AQUI"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gid=0",
+          "cachedResultName": "Centros"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "row_number": "={{ $('Google Sheets — Nueva Fila').item.json.row_number }}",
+            "sincronizado": "={{ new Date().toISOString() }}",
+            "estado_sync": "OK"
+          },
+          "matchingColumns": ["row_number"],
+          "schema": []
+        },
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "google-credential-id",
+          "name": "Google Sheets — G-Talent"
+        }
+      }
+    },
+    {
+      "id": "error-handler",
+      "name": "Manejo de Error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 560],
+      "parameters": {
+        "jsCode": "// Este nodo se conectaría al output de error de Supabase\nconst error = $input.item.json;\nconsole.error('Error en sync acopio:', JSON.stringify(error));\n\n// Retorna el error para logging\nreturn [{ json: { error: true, mensaje: error.message ?? 'Error desconocido', timestamp: new Date().toISOString() } }];"
+      }
+    }
+  ],
+  "connections": {
+    "Google Sheets — Nueva Fila": {
+      "main": [[{ "node": "Validar y Normalizar Fila", "type": "main", "index": 0 }]]
+    },
+    "Validar y Normalizar Fila": {
+      "main": [[{ "node": "Supabase — Upsert Centro Acopio", "type": "main", "index": 0 }]]
+    },
+    "Supabase — Upsert Centro Acopio": {
+      "main": [
+        [{ "node": "Telegram — Confirmar Registro", "type": "main", "index": 0 }],
+        [{ "node": "Google Sheets — Marcar Procesado", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "staticData": null,
+  "tags": ["levanta-vzl", "acopios", "google-sheets", "sync"],
+  "pinData": {},
+  "versionId": "1.0.0",
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "instanceId": "levanta-vzl-acopios-sync"
+  }
+}
