@@ -9,6 +9,10 @@ export const metadata: Metadata = {
   title: 'Levanta Venezuela — Coordinación de Emergencia',
   description: 'Plataforma oficial de respuesta a emergencias. Busca personas desaparecidas, ubica centros de acopio y consulta alertas verificadas.',
   keywords: ['emergencia', 'Venezuela', 'sismo', 'personas desaparecidas', 'acopio'],
+  icons: {
+    icon: '/favicon.png',
+    apple: '/isotipo.png',
+  },
 }
 
 export const viewport: Viewport = {

@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Menu, X, AlertTriangle } from 'lucide-react'
+import Image from 'next/image'
+import { Menu, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const navLinks = [
@@ -20,14 +21,15 @@ export function Header() {
     <header className="sticky top-0 z-40 bg-white border-b border-black/10 shadow-sm">
       <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2 min-h-0">
-          <div className="w-9 h-9 bg-black rounded-lg flex items-center justify-center flex-shrink-0">
-            <AlertTriangle className="w-5 h-5 text-[#FF6600]" aria-hidden="true" />
-          </div>
-          <div className="leading-tight">
-            <span className="block font-black text-base text-black tracking-tight">Levanta</span>
-            <span className="block font-black text-base text-[#FF6600] tracking-tight -mt-1">Venezuela</span>
-          </div>
+        <Link href="/" className="flex items-center min-h-0">
+          <Image
+            src="/logo.png"
+            alt="Levanta Venezuela"
+            width={180}
+            height={48}
+            className="h-10 w-auto object-contain"
+            priority
+          />
         </Link>
 
         {/* Nav Desktop */}
