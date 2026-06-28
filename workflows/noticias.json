@@ -1,0 +1,92 @@
+{
+  "name": "EncuentraBot — /noticias",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": ["message"],
+        "additionalFields": {}
+      },
+      "id": "eb-trigger-noticias",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.1,
+      "position": [240, 300],
+      "webhookId": "encuentrabot-noticias",
+      "credentials": {
+        "telegramApi": { "id": "1", "name": "Telegram Bot" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const text   = $json?.message?.text || '';\nconst chatId = $json?.message?.chat?.id;\nif (!text.startsWith('/noticias')) return [];\nreturn [{ json: { chatId } }];"
+      },
+      "id": "eb-parse-noticias",
+      "name": "Parsear Comando",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://bwyllzoqxlnanznacuei.supabase.co/rest/v1/alertas_noticias",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey",        "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ3eWxsem9xeGxuYW56bmFjdWVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1OTMzNTMsImV4cCI6MjA5ODE2OTM1M30.qNocMSQpMluyi9W5ZKRjww7xRq5YKriMnFLM-N17bao" },
+            { "name": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ3eWxsem9xeGxuYW56bmFjdWVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1OTMzNTMsImV4cCI6MjA5ODE2OTM1M30.qNocMSQpMluyi9W5ZKRjww7xRq5YKriMnFLM-N17bao" },
+            { "name": "Content-Type",  "value": "application/json" }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "publicado", "value": "eq.true" },
+            { "name": "select",   "value": "titulo,cuerpo,fuente,urgencia,tags,creado_en" },
+            { "name": "order",    "value": "creado_en.desc" },
+            { "name": "limit",    "value": "3" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "eb-http-noticias",
+      "name": "Obtener Alertas",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const chatId = $('Parsear Comando').first().json.chatId;\nconst items  = $input.all().map(i => i.json);\n\nif (!items.length) {\n  return [{ json: { chatId, texto: '📰 No hay alertas publicadas en este momento.\\n\\nRevisa más tarde o contacta a Protección Civil.' } }];\n}\n\nconst urgIcono = { 'Crítico': '🔴', 'Alto': '🟠', 'Medio': '🟡', 'Bajo': '🟢' };\n\nlet texto = `📰 *Últimas Alertas y Noticias Verificadas*\\n_(${items.length} más recientes)_\\n\\n`;\n\nitems.forEach((n, i) => {\n  const icono = urgIcono[n.urgencia] || '⚪';\n  const fecha = new Date(n.creado_en).toLocaleString('es-VE', {\n    timeZone: 'America/Caracas',\n    day: '2-digit', month: '2-digit',\n    hour: '2-digit', minute: '2-digit'\n  });\n\n  texto += `${icono} *${n.titulo}*\\n`;\n  texto += `${n.cuerpo}\\n`;\n  texto += `_Fuente: ${n.fuente} · ${fecha}_\\n`;\n\n  if (n.tags && n.tags.length) {\n    texto += n.tags.map(t => `#${t}`).join(' ') + '\\n';\n  }\n\n  if (i < items.length - 1) texto += '\\n───────────────\\n\\n';\n});\n\ntexto += '\\n\\n_Solo se publican alertas verificadas por coordinadores G-Talent._';\n\nreturn [{ json: { chatId, texto } }];"
+      },
+      "id": "eb-format-noticias",
+      "name": "Formatear Alertas",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chatId }}",
+        "text": "={{ $json.texto }}",
+        "additionalFields": { "parse_mode": "Markdown" }
+      },
+      "id": "eb-send-noticias",
+      "name": "Enviar Alertas",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1120, 300],
+      "credentials": {
+        "telegramApi": { "id": "1", "name": "Telegram Bot" }
+      }
+    }
+  ],
+  "connections": {
+    "Telegram Trigger": { "main": [[{ "node": "Parsear Comando",  "type": "main", "index": 0 }]] },
+    "Parsear Comando":  { "main": [[{ "node": "Obtener Alertas",  "type": "main", "index": 0 }]] },
+    "Obtener Alertas":  { "main": [[{ "node": "Formatear Alertas","type": "main", "index": 0 }]] },
+    "Formatear Alertas":{ "main": [[{ "node": "Enviar Alertas",   "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "encuentrabot" }]
+}
