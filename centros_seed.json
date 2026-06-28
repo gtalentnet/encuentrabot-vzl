@@ -1,0 +1,17 @@
+[
+  {"nombre":"Iglesia La Paz","zona":"Caracas","direccion":"Montalban I, Municipio Libertador, Caracas","referencia":"Caritas Venezuela","responsable":null,"telefono":null,"horario":null,"activo":true},
+  {"nombre":"Iglesia San Bernardino de Siena","zona":"Caracas","direccion":"Parroquia San Bernardino, Caracas","referencia":"Caritas Venezuela","responsable":null,"telefono":null,"horario":null,"activo":true},
+  {"nombre":"Edificio FCU-UCV","zona":"Caracas","direccion":"Plaza del Rectorado, Universidad Central de Venezuela, Caracas","referencia":null,"responsable":null,"telefono":null,"horario":"24 horas","activo":true},
+  {"nombre":"Oficina Desarrollo Social Chacao","zona":"Caracas","direccion":"Calle Los Angeles, junto al CC Sambil, Chacao, Caracas","referencia":null,"responsable":null,"telefono":null,"horario":null,"activo":true},
+  {"nombre":"Quinta El Bejucal Altamira","zona":"Caracas","direccion":"4ta Avenida de Altamira entre 9na y 10ma transversal, Caracas","referencia":null,"responsable":null,"telefono":null,"horario":null,"activo":true},
+  {"nombre":"CC La Capilla - Comando ConVzla","zona":"Maracay","direccion":"Av. 19 de Abril, CC La Capilla, Piso 1, Local 21, Maracay","referencia":"Comando ConVzla","responsable":null,"telefono":null,"horario":null,"activo":true},
+  {"nombre":"Paseo de la Libertad Maracay","zona":"Maracay","direccion":"Av. Las Delicias, Paseo de la Libertad, frente al Centro Medico de Maracay","referencia":"Voluntad Popular","responsable":null,"telefono":null,"horario":null,"activo":true},
+  {"nombre":"Edificio Talislandia Valencia","zona":"Valencia","direccion":"Av. Monsenor Adams, El Vinedo, Edificio Talislandia, Mezzanina, Valencia","referencia":null,"responsable":null,"telefono":null,"horario":null,"activo":true},
+  {"nombre":"Bomberos Universidad de Carabobo","zona":"Valencia","direccion":"Universidad de Carabobo, Valencia","referencia":null,"responsable":null,"telefono":null,"horario":null,"activo":true},
+  {"nombre":"Cruz Roja Venezolana Caracas","zona":"Caracas","direccion":"Av. Andres Bello, Edif. Cruz Roja N4, San Bernardino, Caracas","referencia":"Cruz Roja Venezolana","responsable":null,"telefono":"+58-212-571-4380","horario":null,"activo":true},
+  {"nombre":"Cruz Roja - Punto La Guaira","zona":"La Guaira","direccion":"La Guaira, estado Vargas","referencia":"Cruz Roja Venezolana","responsable":null,"telefono":"+584125928735","horario":null,"activo":true},
+  {"nombre":"Complejo Cultural Los Salias","zona":"Miranda","direccion":"San Antonio de Los Altos, estado Miranda","referencia":null,"responsable":null,"telefono":null,"horario":null,"activo":true},
+  {"nombre":"ULA Tachira","zona":"Tachira","direccion":"Nucleo ULA Tachira, San Cristobal","referencia":null,"responsable":null,"telefono":null,"horario":null,"activo":true},
+  {"nombre":"Facultad de Medicina ULA Merida","zona":"Merida","direccion":"Facultad de Medicina, ULA, Merida","referencia":null,"responsable":null,"telefono":null,"horario":null,"activo":true},
+  {"nombre":"Casa Vente Cumana","zona":"Cumana","direccion":"Av. Humboldt frente a Escuela Corazon de Jesus, Cumana","referencia":null,"responsable":null,"telefono":null,"horario":null,"activo":true}
+]

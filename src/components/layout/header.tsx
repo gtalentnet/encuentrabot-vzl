@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { Menu, X } from 'lucide-react'
@@ -16,10 +16,18 @@ const navLinks = [
 
 export function Header() {
   const [open, setOpen] = useState(false)
+  const [scrolled, setScrolled] = useState(false)
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 20)
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
 
   return (
-    <header className="sticky top-0 z-40 bg-white border-b border-black/10 shadow-sm">
+    <header className={cn('sticky top-0 z-40 bg-white border-b border-black/10 header-glass', scrolled && 'scrolled')}>
       <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
+
         {/* Logo */}
         <Link href="/" className="flex items-center min-h-0">
           <Image
@@ -41,8 +49,8 @@ export function Header() {
               className={cn(
                 'px-4 py-2 rounded-lg text-sm font-medium transition-colors min-h-0',
                 link.label === 'Reportar'
-                  ? 'bg-[#FF6600] text-white hover:bg-orange-700'
-                  : 'text-black/70 hover:text-black hover:bg-black/5'
+                  ? 'bg-[#FF6600] text-white hover:bg-orange-700 pulse-orange'
+                  : 'text-black/70 hover:text-black hover:bg-black/5 nav-link'
               )}
             >
               {link.label}

@@ -1,5 +1,5 @@
 {
-  "name": "Levanta VZL — Noticias Auto (RSS + IA → Supabase)",
+  "name": "Levanta VZL — Noticias Auto (RSS + OpenAI → Supabase)",
   "active": false,
   "nodes": [
     {
@@ -59,16 +59,17 @@
       }
     },
     {
-      "id": "groq-ia",
-      "name": "Groq — Extraer Datos Noticia",
-      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
-      "typeVersion": 1,
+      "id": "openai-ia",
+      "name": "OpenAI — Extraer Datos Noticia",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.3,
       "position": [900, 300],
       "parameters": {
-        "model": "llama3-8b-8192",
-        "options": {
-          "temperature": 0.1,
-          "maxTokens": 512
+        "modelId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4o-mini",
+          "cachedResultName": "GPT-4O-MINI"
         },
         "messages": {
           "values": [
@@ -78,15 +79,20 @@
             },
             {
               "role": "user",
-              "content": "=Analiza esta noticia y extrae los datos:\n\nTítulo: {{ $json.title }}\nFuente: {{ $json.creator ?? $json['dc:creator'] ?? 'Desconocida' }}\nContenido: {{ ($json.contentSnippet ?? $json.content ?? $json.summary ?? '').substring(0, 1000) }}\nFecha: {{ $json.pubDate }}"
+              "content": "=Analiza esta noticia y extrae los datos:\n\nTítulo: {{ $json.title }}\nFuente: {{ $json['dc:creator'] ?? $json.creator ?? 'Desconocida' }}\nContenido: {{ ($json.contentSnippet ?? $json.content ?? $json.summary ?? '').substring(0, 1000) }}\nFecha: {{ $json.pubDate }}"
             }
           ]
+        },
+        "builtInTools": {},
+        "options": {
+          "temperature": 0.1,
+          "maxTokens": 512
         }
       },
       "credentials": {
-        "groqApi": {
-          "id": "groq-credential-id",
-          "name": "Groq API"
+        "openAiApi": {
+          "id": "yABG9r2JvWGetQzW",
+          "name": "OpenAI account"
         }
       }
     },
@@ -97,7 +103,7 @@
       "typeVersion": 2,
       "position": [1120, 300],
       "parameters": {
-        "jsCode": "const raw = $input.item.json.text ?? $input.item.json.content ?? '';\nlet parsed;\ntry {\n  const match = raw.match(/\\{[\\s\\S]*\\}/);\n  parsed = JSON.parse(match ? match[0] : raw);\n} catch {\n  return [];\n}\n\nconst urgencias = ['Crítico', 'Alto', 'Medio', 'Bajo'];\nconst urgencia = urgencias.includes(parsed.urgencia) ? parsed.urgencia : 'Bajo';\n\nif (!parsed.titulo || !parsed.cuerpo) return [];\n\nreturn [{\n  json: {\n    titulo: String(parsed.titulo).substring(0, 200),\n    cuerpo: String(parsed.cuerpo).substring(0, 400),\n    fuente: String(parsed.fuente ?? 'RSS Auto').substring(0, 100),\n    fuente_url: $('Leer RSS Noticias').item.json.link ?? null,\n    urgencia,\n    fuente_tipo: 'Automatizado',\n    activo: true,\n    tags: ['automatico', 'rss']\n  }\n}];"
+        "jsCode": "// Extraer texto de la respuesta de OpenAI\nconst response = $input.item.json;\nconst raw = response.message?.content ?? response.choices?.[0]?.message?.content ?? '';\n\nlet parsed;\ntry {\n  const match = raw.match(/\\{[\\s\\S]*\\}/);\n  parsed = JSON.parse(match ? match[0] : raw);\n} catch {\n  return [];\n}\n\nconst urgencias = ['Crítico', 'Alto', 'Medio', 'Bajo'];\nconst urgencia = urgencias.includes(parsed.urgencia) ? parsed.urgencia : 'Bajo';\n\nif (!parsed.titulo || !parsed.cuerpo) return [];\n\nreturn [{\n  json: {\n    titulo: String(parsed.titulo).substring(0, 200),\n    cuerpo: String(parsed.cuerpo).substring(0, 400),\n    fuente: String(parsed.fuente ?? 'RSS Auto').substring(0, 100),\n    fuente_url: $('Leer RSS Noticias').item.json.link ?? null,\n    urgencia,\n    fuente_tipo: 'Automatizado',\n    activo: true,\n    tags: ['automatico', 'rss']\n  }\n}];"
       }
     },
     {
@@ -131,6 +137,32 @@
       }
     },
     {
+      "id": "filter-critico",
+      "name": "¿Es Crítico o Alto?",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2,
+      "position": [1340, 160],
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "id": "es-urgente",
+              "leftValue": "={{ $json.urgencia }}",
+              "rightValue": "Bajo",
+              "operator": { "type": "string", "operation": "notEquals" }
+            },
+            {
+              "id": "no-medio",
+              "leftValue": "={{ $json.urgencia }}",
+              "rightValue": "Medio",
+              "operator": { "type": "string", "operation": "notEquals" }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
       "id": "notify-telegram",
       "name": "Telegram — Notificar Crítico",
       "type": "n8n-nodes-base.telegram",
@@ -149,38 +181,6 @@
           "name": "Telegram — EncuentraVZL"
         }
       }
-    },
-    {
-      "id": "filter-critico",
-      "name": "¿Es Crítico o Alto?",
-      "type": "n8n-nodes-base.filter",
-      "typeVersion": 2,
-      "position": [1340, 160],
-      "parameters": {
-        "conditions": {
-          "conditions": [
-            {
-              "id": "es-urgente",
-              "leftValue": "={{ $json.urgencia }}",
-              "rightValue": "Bajo",
-              "operator": {
-                "type": "string",
-                "operation": "notEquals"
-              }
-            },
-            {
-              "id": "no-medio",
-              "leftValue": "={{ $json.urgencia }}",
-              "rightValue": "Medio",
-              "operator": {
-                "type": "string",
-                "operation": "notEquals"
-              }
-            }
-          ],
-          "combinator": "and"
-        }
-      }
     }
   ],
   "connections": {
@@ -191,9 +191,9 @@
       "main": [[{ "node": "Filtrar Últimas 15 min", "type": "main", "index": 0 }]]
     },
     "Filtrar Últimas 15 min": {
-      "main": [[{ "node": "Groq — Extraer Datos Noticia", "type": "main", "index": 0 }]]
+      "main": [[{ "node": "OpenAI — Extraer Datos Noticia", "type": "main", "index": 0 }]]
     },
-    "Groq — Extraer Datos Noticia": {
+    "OpenAI — Extraer Datos Noticia": {
       "main": [[{ "node": "Parsear JSON de IA", "type": "main", "index": 0 }]]
     },
     "Parsear JSON de IA": {
@@ -213,9 +213,9 @@
     "errorWorkflow": ""
   },
   "staticData": null,
-  "tags": ["levanta-vzl", "noticias", "automatizacion"],
+  "tags": ["levanta-vzl", "noticias", "automatizacion", "openai"],
   "pinData": {},
-  "versionId": "1.0.0",
+  "versionId": "1.2.0",
   "meta": {
     "templateCredsSetupCompleted": false,
     "instanceId": "levanta-vzl-noticias-auto"

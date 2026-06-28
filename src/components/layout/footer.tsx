@@ -34,7 +34,7 @@ export function Footer() {
                 <li key={link.href}>
                   <Link
                     href={link.href}
-                    className="text-white/60 hover:text-[#FF6600] text-sm transition-colors min-h-0"
+                    className="footer-link text-white/60 text-sm"
                   >
                     {link.label}
                   </Link>
