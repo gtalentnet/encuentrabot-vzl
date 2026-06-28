@@ -1,0 +1,86 @@
+'use client'
+
+import { useState } from 'react'
+import Link from 'next/link'
+import { Menu, X, AlertTriangle } from 'lucide-react'
+import { cn } from '@/lib/utils'
+
+const navLinks = [
+  { href: '/',         label: 'Inicio' },
+  { href: '/personas', label: 'Personas' },
+  { href: '/acopio',   label: 'Centros de Acopio' },
+  { href: '/alertas',  label: 'Alertas' },
+  { href: '/reportar', label: 'Reportar' },
+]
+
+export function Header() {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <header className="sticky top-0 z-40 bg-white border-b border-black/10 shadow-sm">
+      <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
+        {/* Logo */}
+        <Link href="/" className="flex items-center gap-2 min-h-0">
+          <div className="w-9 h-9 bg-black rounded-lg flex items-center justify-center flex-shrink-0">
+            <AlertTriangle className="w-5 h-5 text-[#FF6600]" aria-hidden="true" />
+          </div>
+          <div className="leading-tight">
+            <span className="block font-black text-base text-black tracking-tight">Levanta</span>
+            <span className="block font-black text-base text-[#FF6600] tracking-tight -mt-1">Venezuela</span>
+          </div>
+        </Link>
+
+        {/* Nav Desktop */}
+        <nav className="hidden md:flex items-center gap-1" aria-label="Navegación principal">
+          {navLinks.map(link => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className={cn(
+                'px-4 py-2 rounded-lg text-sm font-medium transition-colors min-h-0',
+                link.label === 'Reportar'
+                  ? 'bg-[#FF6600] text-white hover:bg-orange-700'
+                  : 'text-black/70 hover:text-black hover:bg-black/5'
+              )}
+            >
+              {link.label}
+            </Link>
+          ))}
+        </nav>
+
+        {/* Hamburger Mobile */}
+        <button
+          className="md:hidden p-2 rounded-lg hover:bg-black/5 min-h-0 min-w-[44px] justify-center"
+          onClick={() => setOpen(!open)}
+          aria-label={open ? 'Cerrar menú' : 'Abrir menú'}
+          aria-expanded={open}
+        >
+          {open ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+        </button>
+      </div>
+
+      {/* Mobile Menu */}
+      {open && (
+        <div className="md:hidden border-t border-black/10 bg-white animate-fade-in">
+          <nav className="max-w-6xl mx-auto px-4 py-3 flex flex-col gap-1" aria-label="Menú móvil">
+            {navLinks.map(link => (
+              <Link
+                key={link.href}
+                href={link.href}
+                onClick={() => setOpen(false)}
+                className={cn(
+                  'px-4 py-3 rounded-lg text-base font-medium transition-colors',
+                  link.label === 'Reportar'
+                    ? 'bg-[#FF6600] text-white text-center'
+                    : 'text-black hover:bg-black/5'
+                )}
+              >
+                {link.label}
+              </Link>
+            ))}
+          </nav>
+        </div>
+      )}
+    </header>
+  )
+}
