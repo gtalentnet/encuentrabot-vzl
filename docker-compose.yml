@@ -1,0 +1,40 @@
+version: "3.8"
+
+services:
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    container_name: encuentrabot_n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_HOST=${N8N_HOST:-localhost}
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=${N8N_PROTOCOL:-http}
+      - WEBHOOK_URL=${WEBHOOK_URL}
+      - TZ=${TZ:-America/Caracas}
+      - GENERIC_TIMEZONE=${TZ:-America/Caracas}
+      # Credenciales de Supabase disponibles como env vars en expresiones n8n
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      # Telegram
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      # Seguridad básica (cambiar en producción)
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=${N8N_USER:-admin}
+      - N8N_BASIC_AUTH_PASSWORD=${N8N_PASSWORD:-changeme}
+      # Persistencia de datos cifrada
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY:-super-secret-key-change-in-prod}
+    volumes:
+      - n8n_data:/home/node/.n8n
+    networks:
+      - encuentrabot_net
+
+volumes:
+  n8n_data:
+    driver: local
+
+networks:
+  encuentrabot_net:
+    driver: bridge

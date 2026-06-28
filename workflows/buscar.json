@@ -1,0 +1,136 @@
+{
+  "name": "EncuentraBot — /buscar",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": ["message"],
+        "additionalFields": {}
+      },
+      "id": "eb-trigger-buscar",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.1,
+      "position": [240, 300],
+      "webhookId": "encuentrabot-buscar",
+      "credentials": {
+        "telegramApi": { "id": "1", "name": "Telegram Bot" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const text = $json?.message?.text || '';\nconst chatId = $json?.message?.chat?.id;\n\nif (!text.startsWith('/buscar')) {\n  return [];\n}\n\nconst termino = text.replace('/buscar', '').trim();\n\nif (!termino) {\n  return [{ json: { chatId, termino: '', error: 'vacio' } }];\n}\n\nreturn [{ json: { chatId, termino } }];"
+      },
+      "id": "eb-parse-buscar",
+      "name": "Parsear Comando",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": false },
+          "conditions": [
+            {
+              "id": "cond-vacio",
+              "leftValue": "={{ $json.error }}",
+              "rightValue": "vacio",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "eb-if-vacio",
+      "name": "¿Término vacío?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chatId }}",
+        "text": "⚠️ *Uso correcto:* `/buscar Nombre Apellido`\n\nEjemplo: `/buscar Juan Pérez`",
+        "additionalFields": { "parse_mode": "Markdown" }
+      },
+      "id": "eb-msg-ayuda-buscar",
+      "name": "Mensaje de Ayuda",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [900, 180],
+      "credentials": {
+        "telegramApi": { "id": "1", "name": "Telegram Bot" }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://bwyllzoqxlnanznacuei.supabase.co/rest/v1/personas",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey",        "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ3eWxsem9xeGxuYW56bmFjdWVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1OTMzNTMsImV4cCI6MjA5ODE2OTM1M30.qNocMSQpMluyi9W5ZKRjww7xRq5YKriMnFLM-N17bao" },
+            { "name": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ3eWxsem9xeGxuYW56bmFjdWVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1OTMzNTMsImV4cCI6MjA5ODE2OTM1M30.qNocMSQpMluyi9W5ZKRjww7xRq5YKriMnFLM-N17bao" },
+            { "name": "Content-Type",  "value": "application/json" },
+            { "name": "Prefer",        "value": "return=representation" }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "nombre_completo", "value": "=ilike.*{{ $json.termino }}*" },
+            { "name": "select",          "value": "id,nombre_completo,edad,sexo,descripcion,ultima_ubicacion,estado,contacto,fecha_reporte" },
+            { "name": "order",           "value": "fecha_reporte.desc" },
+            { "name": "limit",           "value": "5" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "eb-http-buscar",
+      "name": "Buscar en Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 420]
+    },
+    {
+      "parameters": {
+        "jsCode": "const chatId = $('Parsear Comando').first().json.chatId;\nconst termino = $('Parsear Comando').first().json.termino;\nconst resultados = $input.all().map(i => i.json);\n\nif (!resultados || resultados.length === 0) {\n  return [{\n    json: {\n      chatId,\n      texto: `🔍 No se encontraron personas con el nombre *${termino}*.\\n\\nIntenta con otro término o consulta a un coordinador.`\n    }\n  }];\n}\n\nconst iconos = { Desaparecido: '🔴', Encontrado: '🟢', Reunificado: '✅' };\n\nlet texto = `🔍 *Resultados para \"${termino}\"* (${resultados.length} encontrado${resultados.length > 1 ? 's' : ''}):\\n\\n`;\n\nresultados.forEach((p, i) => {\n  const icono = iconos[p.estado] || '⚪';\n  texto += `${icono} *${p.nombre_completo}*\\n`;\n  if (p.edad)             texto += `   Edad: ${p.edad} años\\n`;\n  if (p.ultima_ubicacion) texto += `   Última ubicación: ${p.ultima_ubicacion}\\n`;\n  texto += `   Estado: *${p.estado}*\\n`;\n  if (p.contacto)         texto += `   Contacto: ${p.contacto}\\n`;\n  if (i < resultados.length - 1) texto += '\\n';\n});\n\nreturn [{ json: { chatId, texto } }];"
+      },
+      "id": "eb-format-buscar",
+      "name": "Formatear Respuesta",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 420]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chatId }}",
+        "text": "={{ $json.texto }}",
+        "additionalFields": { "parse_mode": "Markdown" }
+      },
+      "id": "eb-send-buscar",
+      "name": "Enviar Resultado",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1340, 420],
+      "credentials": {
+        "telegramApi": { "id": "1", "name": "Telegram Bot" }
+      }
+    }
+  ],
+  "connections": {
+    "Telegram Trigger":    { "main": [[{ "node": "Parsear Comando",     "type": "main", "index": 0 }]] },
+    "Parsear Comando":     { "main": [[{ "node": "¿Término vacío?",     "type": "main", "index": 0 }]] },
+    "¿Término vacío?":    {
+      "main": [
+        [{ "node": "Mensaje de Ayuda",  "type": "main", "index": 0 }],
+        [{ "node": "Buscar en Supabase","type": "main", "index": 0 }]
+      ]
+    },
+    "Buscar en Supabase":  { "main": [[{ "node": "Formatear Respuesta", "type": "main", "index": 0 }]] },
+    "Formatear Respuesta": { "main": [[{ "node": "Enviar Resultado",    "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "encuentrabot" }]
+}

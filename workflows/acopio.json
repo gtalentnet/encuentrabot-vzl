@@ -1,0 +1,127 @@
+{
+  "name": "EncuentraBot — /acopio",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": ["message"],
+        "additionalFields": {}
+      },
+      "id": "eb-trigger-acopio",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.1,
+      "position": [240, 300],
+      "webhookId": "encuentrabot-acopio",
+      "credentials": {
+        "telegramApi": { "id": "1", "name": "Telegram Bot" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const text = $json?.message?.text || '';\nconst chatId = $json?.message?.chat?.id;\n\nif (!text.startsWith('/acopio')) return [];\n\nconst zona = text.replace('/acopio', '').trim() || null;\nreturn [{ json: { chatId, zona } }];"
+      },
+      "id": "eb-parse-acopio",
+      "name": "Parsear Comando",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://bwyllzoqxlnanznacuei.supabase.co/rest/v1/centros_acopio",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey",        "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ3eWxsem9xeGxuYW56bmFjdWVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1OTMzNTMsImV4cCI6MjA5ODE2OTM1M30.qNocMSQpMluyi9W5ZKRjww7xRq5YKriMnFLM-N17bao" },
+            { "name": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ3eWxsem9xeGxuYW56bmFjdWVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1OTMzNTMsImV4cCI6MjA5ODE2OTM1M30.qNocMSQpMluyi9W5ZKRjww7xRq5YKriMnFLM-N17bao" },
+            { "name": "Content-Type",  "value": "application/json" }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "activo", "value": "eq.true" },
+            { "name": "select", "value": "id,nombre,zona,direccion,referencia,responsable,telefono,horario,capacidad_actual" },
+            { "name": "order",  "value": "zona.asc" },
+            { "name": "limit",  "value": "10" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "eb-http-centros",
+      "name": "Obtener Centros",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://bwyllzoqxlnanznacuei.supabase.co/rest/v1/inventario_acopio",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey",        "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ3eWxsem9xeGxuYW56bmFjdWVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1OTMzNTMsImV4cCI6MjA5ODE2OTM1M30.qNocMSQpMluyi9W5ZKRjww7xRq5YKriMnFLM-N17bao" },
+            { "name": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ3eWxsem9xeGxuYW56bmFjdWVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1OTMzNTMsImV4cCI6MjA5ODE2OTM1M30.qNocMSQpMluyi9W5ZKRjww7xRq5YKriMnFLM-N17bao" },
+            { "name": "Content-Type",  "value": "application/json" }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "urgencia", "value": "in.(Crítico,Alto)" },
+            { "name": "select",   "value": "centro_id,insumo,cantidad,unidad,urgencia" },
+            { "name": "order",    "value": "urgencia.asc" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "eb-http-inventario",
+      "name": "Obtener Inventario Crítico",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 500]
+    },
+    {
+      "parameters": {
+        "jsCode": "const chatId = $('Parsear Comando').first().json.chatId;\nconst zona   = $('Parsear Comando').first().json.zona;\n\nconst centros    = $('Obtener Centros').all().map(i => i.json);\nconst inventario = $('Obtener Inventario Crítico').all().map(i => i.json);\n\nconst filtrados = zona\n  ? centros.filter(c => c.zona.toLowerCase().includes(zona.toLowerCase()))\n  : centros;\n\nif (!filtrados.length) {\n  return [{ json: { chatId, texto: `🏪 No se encontraron centros activos${zona ? ' en ' + zona : ''}.` } }];\n}\n\nconst urgIcono = { 'Crítico': '🔴', 'Alto': '🟠', 'Medio': '🟡', 'Bajo': '🟢' };\n\nlet texto = `🏪 *Centros de Acopio Activos*${zona ? ' — ' + zona : ''}\\n`;\ntexto += `_(${filtrados.length} centro${filtrados.length > 1 ? 's' : ''})_\\n\\n`;\n\nfiltrados.forEach(c => {\n  texto += `📍 *${c.nombre}* (${c.zona})\\n`;\n  texto += `   ${c.direccion}\\n`;\n  if (c.referencia)       texto += `   Ref: ${c.referencia}\\n`;\n  if (c.horario)          texto += `   🕐 ${c.horario}\\n`;\n  if (c.responsable)      texto += `   👤 ${c.responsable}`;\n  if (c.telefono)         texto += ` · ${c.telefono}`;\n  texto += '\\n';\n  if (c.capacidad_actual) texto += `   Capacidad: ${c.capacidad_actual}\\n`;\n\n  const inv = inventario.filter(i => i.centro_id === c.id);\n  if (inv.length) {\n    texto += `   *Necesidades urgentes:*\\n`;\n    inv.slice(0, 3).forEach(i => {\n      texto += `   ${urgIcono[i.urgencia] || '⚪'} ${i.insumo} (${i.cantidad} ${i.unidad})\\n`;\n    });\n  }\n  texto += '\\n';\n});\n\ntexto += '_Para donar o coordinar, contacta al responsable del centro._';\n\nreturn [{ json: { chatId, texto } }];"
+      },
+      "id": "eb-format-acopio",
+      "name": "Formatear Centros",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [920, 400]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chatId }}",
+        "text": "={{ $json.texto }}",
+        "additionalFields": { "parse_mode": "Markdown" }
+      },
+      "id": "eb-send-acopio",
+      "name": "Enviar Centros",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1140, 400],
+      "credentials": {
+        "telegramApi": { "id": "1", "name": "Telegram Bot" }
+      }
+    }
+  ],
+  "connections": {
+    "Telegram Trigger":          { "main": [[{ "node": "Parsear Comando",         "type": "main", "index": 0 }]] },
+    "Parsear Comando":           {
+      "main": [
+        [
+          { "node": "Obtener Centros",           "type": "main", "index": 0 },
+          { "node": "Obtener Inventario Crítico","type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Obtener Centros":           { "main": [[{ "node": "Formatear Centros", "type": "main", "index": 0 }]] },
+    "Obtener Inventario Crítico":{ "main": [[{ "node": "Formatear Centros", "type": "main", "index": 0 }]] },
+    "Formatear Centros":         { "main": [[{ "node": "Enviar Centros",    "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "encuentrabot" }]
+}
