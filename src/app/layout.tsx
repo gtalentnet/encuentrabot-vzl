@@ -3,6 +3,7 @@ import './globals.css'
 import { Header } from '@/components/layout/header'
 import { Footer } from '@/components/layout/footer'
 import { NewsTicker } from '@/components/layout/news-ticker'
+import { TelegramFab } from '@/components/layout/telegram-fab'
 
 export const metadata: Metadata = {
   title: 'Levanta Venezuela — Coordinación de Emergencia',
@@ -24,6 +25,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Header />
         <main className="flex-1">{children}</main>
         <Footer />
+        <TelegramFab />
       </body>
     </html>
   )
